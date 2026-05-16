@@ -7,6 +7,12 @@ class ContaSchema(BaseModel):
     saldo: float = Field(default=0.0, ge=0.0, description="Saldo inicial da conta (não pode ser negativo)")
     id_cliente: int = Field(..., description="ID único do cliente associado a esta conta")
 
+class ClientSchema(BaseModel):
+    id_cliente: int = Field(..., description="ID único do cliente associado a esta conta")
+    nome_completo: str = Field(..., description="Nome completo do Cliente")
+    idade: int = Field(..., description="Idade do Cliente (minimo 14)")
+    telefone: str = Field(..., description="Numero do Cliente (minimo 14)")
+
 banco_dados_fake = []
 
 app = FastAPI()
@@ -58,3 +64,45 @@ def criar_conta(conta: ContaSchema):
 @app.get("/itens/{item_id}")
 def read_item(item_id: int, q: str = None):
     return {"item_id": item_id, "busca": q}
+
+clientes_lista = []
+
+@app.post("/clientes/create", status_code=status.HTTP_201_CREATED, summary="Criar uma nova conta bancária")
+def criar_cliente(clientes: ClientSchema):
+    for c in clientes_lista:
+        if c["id_cliente"] == clientes.id_cliente:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Cliente já cadastrato"
+            )
+        
+        if clientes.idade < 14:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail=f"Idade abaixo da minima, volte em {14 - clientes.idade} anos"
+            )
+    
+    novo_cliente = clientes.model_dump()
+    clientes_lista.append(novo_cliente)
+    
+    return {
+        "mensagem": "Cliente criado com sucesso!",
+        "cliente_data": novo_cliente
+    }        
+
+
+@app.get("/clientes/{id}", summary="Buscar cliente por id")
+def read_cliente(id: int):
+    
+    for cliente in clientes_lista:
+        if cliente["id_cliente"] == id:
+            return {
+                "mensagem": "Cliente encontrado!",
+                "cliente_data": cliente
+            }
+            
+    # Se percorrer toda a lista e não encontrar nada, lança um erro 404 (Not Found)
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Cliente com id {id} nao localizado"
+    )
